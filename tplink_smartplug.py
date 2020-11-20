@@ -23,6 +23,8 @@ import argparse
 import socket
 from struct import pack
 
+import time
+
 version = 0.4
 
 # Check if hostname is valid
@@ -85,6 +87,26 @@ def decrypt(string):
         result += chr(a)
     return result
 
+def recv_all(connection, timeout=1):
+    connection.setblocking(0)
+    total_data = [];
+    data = b'';
+    begin = time.time();
+    while True:
+        if total_data and time.time() - begin > timeout:
+            break
+        elif time.time() - begin > timeout * 2:
+            break
+        try:
+            data = connection.recv(1024)
+            if data:
+                total_data.append(data)
+                begin = time.time()
+            else:
+                time.sleep(0.25)
+        except:
+            pass
+    return b''.join(total_data)
 
 # Parse commandline arguments
 parser = argparse.ArgumentParser(description=f"TP-Link Wi-Fi Smart Plug Client v{version}")
@@ -120,7 +142,7 @@ try:
     sock_tcp.connect((ip, port))
     sock_tcp.settimeout(None)
     sock_tcp.send(encrypt(cmd))
-    data = sock_tcp.recv(2048)
+    data = recv_all(sock_tcp)
     sock_tcp.close()
 
     decrypted = decrypt(data[4:])
