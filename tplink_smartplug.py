@@ -20,6 +20,7 @@ limitations under the License.
 
 import argparse
 import socket
+import time
 from struct import pack
 
 version = 0.4
@@ -71,6 +72,28 @@ def decrypt(ciphertext: bytes) -> bytearray:
         key = i
         result.append(a)
     return bytearray(result).decode()
+
+
+def recv_all(connection, timeout=1):
+    connection.setblocking(0)
+    total_data = [];
+    data = b'';
+    begin = time.time();
+    while True:
+        if total_data and time.time() - begin > timeout:
+            break
+        elif time.time() - begin > timeout * 2:
+            break
+        try:
+            data = connection.recv(1024)
+            if data:
+                total_data.append(data)
+                begin = time.time()
+            else:
+                time.sleep(0.25)
+        except:
+            pass
+    return b''.join(total_data)
 
 
 def parse_args():
@@ -155,7 +178,7 @@ def main():
         sock_tcp.connect((ip, port))
         sock_tcp.settimeout(None)
         sock_tcp.send(encrypt(cmd))
-        data = sock_tcp.recv(2048)
+        data = recv_all(sock_tcp)
         sock_tcp.close()
 
         decrypted = decrypt(data[4:])
